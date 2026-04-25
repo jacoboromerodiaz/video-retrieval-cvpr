@@ -6,4 +6,7 @@ disable =
     invalid-name,
     too-many-arguments,
     too-many-positional-arguments,
-    redefined-outer-name
+    redefined-outer-name,
+
+[DESIGN]
+max-locals=20
