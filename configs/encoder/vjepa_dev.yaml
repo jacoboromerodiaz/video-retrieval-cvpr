@@ -1,0 +1,9 @@
+mode: dev
+json_path: covr/data/covr-r/merged_webvid_ss2.json
+video_root: covr/data/covr-r/videos
+splits:
+  - webvid
+  - ss2
+output_dir: embeddings
+batch_size: 1
+num_workers: 4
