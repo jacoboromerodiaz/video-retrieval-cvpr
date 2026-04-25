@@ -6,3 +6,6 @@ wheels/
 *.egg-info
 
 .venv
+
+covr/data/covr-r
+embeddings
