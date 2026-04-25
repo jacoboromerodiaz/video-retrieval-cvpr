@@ -4,4 +4,24 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "datasets>=4.8.4",
+    "einops>=0.8.2",
+    "timm>=1.0.26",
+    "torch>=2.11.0",
+    "torchcodec>=0.11.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.black]
+target-version = ["py312"]
+
+[dependency-groups]
+dev = [
+    "black>=26.3.1",
+    "flake8>=7.3.0",
+    "pre-commit>=4.6.0",
+    "pylint>=4.0.5",
+]
