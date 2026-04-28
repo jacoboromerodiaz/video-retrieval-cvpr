@@ -42,8 +42,10 @@ class RetrievalDataset(Dataset):
         json_path: str | Path,
         video_root: str | Path,
         split: Literal["ss2", "webvid"],
+        load_frames: bool = True,
     ):
         self.video_root = Path(video_root)
+        self.load_frames = load_frames
 
         with open(json_path, encoding="utf-8") as f:
             self.samples = json.load(f)[_SPLIT_INDEX[split]][split]
@@ -53,14 +55,20 @@ class RetrievalDataset(Dataset):
 
     def __getitem__(self, idx):
         s = self.samples[idx]
-        video_filename = Path(str(s["video_source"])).name
-        return {
-            "source_frames": load_frames(find_video(self.video_root, video_filename)),
+        item = {
             "source_video_id": str(s["id"]),
             "description_source": s["description_source"],
             "description_target": s["description_target"],
-            "target_video_id": s["video_target"],
+            "modification_text": s["modification_text"],
+            "reasoned_description": s["reasoned_target_video_description__main"],
+            "target_video_id": str(s["video_target"]),
         }
+        if self.load_frames:
+            video_filename = Path(str(s["video_source"])).name
+            item["source_frames"] = load_frames(
+                find_video(self.video_root, video_filename)
+            )
+        return item
 
 
 class VideoEmbeddingDataset(Dataset):
