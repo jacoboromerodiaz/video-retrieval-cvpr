@@ -4,6 +4,6 @@ video_root: covr/data/covr-r/videos
 splits:
   - webvid
   - ss2
-output_dir: video_embeddings
+output_dir: video_embeddings/vjepa_gigantic
 batch_size: 1
 num_workers: 4
