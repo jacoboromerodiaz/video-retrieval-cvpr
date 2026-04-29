@@ -4,8 +4,11 @@ build/
 dist/
 wheels/
 *.egg-info
+.DS_store
 
 .venv
 
+# data
 covr/data/covr-r
-embeddings
+video_embeddings
+query_embeddings
