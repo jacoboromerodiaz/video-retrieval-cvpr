@@ -7,6 +7,8 @@ requires-python = ">=3.12"
 dependencies = [
     "datasets>=4.8.4",
     "einops>=0.8.2",
+    "open-clip-torch>=2.26.1",
+    "transformers>=4.40.0",
     "timm>=1.0.26",
     "torch>=2.11.0",
     "torchcodec>=0.11.1",
@@ -22,6 +24,7 @@ target-version = ["py312"]
 dev = [
     "black>=26.3.1",
     "flake8>=7.3.0",
+    "matplotlib>=3.10.9",
     "pre-commit>=4.6.0",
     "pylint>=4.0.5",
 ]
