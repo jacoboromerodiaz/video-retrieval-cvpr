@@ -72,13 +72,25 @@ flowchart LR
 - [ ] ablation in d_model=512
         Check if the model is underfitting (loss plateaus high, Recall@K is low even on training set): capacity is the bottleneck -> bump to 768 or 1024
 
-## Changes
+## Changes to original idea
 
 - CLIP's text encoder was trained via contrastive alignment with images, so it's optimized for **short**, descriptive captions, not for instruction-style text that describes transformations.
 
 - Use text embeddings as values?
 
 - Implement cross-attention directly in VJEPA?
+
+---
+
+## Installation
+
+Clone the repository and install all dependencies (including development dependencies) with `uv`:
+
+```bash
+git clone git@github.com:jacoboromerodiaz/video-retrieval-cvpr.git
+cd video-retrieval-cvpr
+uv sync --dev
+```
 
 ---
 
