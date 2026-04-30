@@ -13,17 +13,14 @@ _SPLIT_INDEX = {"webvid": 0, "ss2": 1}
 
 def load_frames(
     path: str | Path,
-    num_frames: int = 8,
+    target_fps: int = 4,
 ) -> torch.Tensor:
     decoder = VideoDecoder(str(path))
-
-    indices = torch.linspace(0, len(decoder) - 1, num_frames).long().tolist()
+    native_fps = decoder.metadata.average_fps or 24.0
+    step = max(1, round(native_fps / target_fps))
+    indices = list(range(0, len(decoder), step))
     frames = decoder.get_frames_at(indices=indices).data  # [T, C, H, W]
-
-    tensor = frames.float() / 255.0
-    tensor = tensor.permute(1, 0, 2, 3)  # [C, T, H, W]
-
-    return tensor
+    return (frames.float() / 255.0).permute(1, 0, 2, 3)  # [C, T, H, W]
 
 
 def find_video(video_root: Path, stem: str) -> Path:
@@ -43,9 +40,11 @@ class RetrievalDataset(Dataset):
         video_root: str | Path,
         split: Literal["ss2", "webvid"],
         load_frames: bool = True,
+        target_fps: int = 4,
     ):
         self.video_root = Path(video_root)
-        self.load_frames = load_frames
+        self.load_frames_flag = load_frames
+        self.target_fps = target_fps
 
         with open(json_path, encoding="utf-8") as f:
             self.samples = json.load(f)[_SPLIT_INDEX[split]][split]
@@ -56,17 +55,18 @@ class RetrievalDataset(Dataset):
     def __getitem__(self, idx):
         s = self.samples[idx]
         item = {
-            "source_video_id": str(s["id"]),
+            "id": str(s["id"]),
             "description_source": s["description_source"],
             "description_target": s["description_target"],
             "modification_text": s["modification_text"],
-            "reasoned_description": s["reasoned_target_video_description__main"],
-            "target_video_id": str(s["video_target"]),
+            "source_video_id": str(s["video_source"]).split("/")[-1],
+            "target_video_id": str(s["video_target"]).split("/")[-1],
         }
-        if self.load_frames:
+        if self.load_frames_flag:
             video_filename = Path(str(s["video_source"])).name
             item["source_frames"] = load_frames(
-                find_video(self.video_root, video_filename)
+                find_video(self.video_root, video_filename),
+                self.target_fps,
             )
         return item
 
