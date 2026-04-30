@@ -5,5 +5,5 @@ splits:
   - webvid
   - ss2
 output_dir: video_embeddings/vjepa_gigantic
-batch_size: 1
 num_workers: 4
+target_fps: 4

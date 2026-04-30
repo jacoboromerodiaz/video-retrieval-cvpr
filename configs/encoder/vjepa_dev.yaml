@@ -5,5 +5,5 @@ splits:
   - webvid
   - ss2
 output_dir: video_embeddings/vjepa_base #TODO change output_dir to model name
-batch_size: 1
 num_workers: 4
+target_fps: 2
