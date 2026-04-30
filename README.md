@@ -31,6 +31,29 @@ flowchart LR
     CLIP --> TE(["Modification query embeddings"])
     TE --> CA
 ```
+#### VJEPA-2.1
+
+Videos are encoded offline using a frozen **V-JEPA 2.1 ViT-Base/Gigantic** backbone into patch-level embeddings stored as `.pt` files.
+
+```
+video.mp4
+    ↓  downsample to 4 FPS (matching V-JEPA pretraining)
+[C, T, H, W]
+    ↓  chunk into 16-frame clips (= 4 seconds each)
+[1, C, 16, H, W] × n_chunks  →  V-JEPA  →  [N, 768] per chunk
+    ↓  concatenate
+[sum_N, 768]  →  saved as {source_video_id}.pt
+```
+
+Each video produces a variable-length tensor `[sum_N, 768]` where `sum_N` grows with video duration.
+
+At retrieval time, either:
+    - **MaxSim** used to score a query vector against all frame-level embeddings
+    - **Mean-pool** over `N` to get a 1D video vector.
+
+#### FLAN encoder
+
+TODO
 
 #### Cross-attention transfomer
 
@@ -53,6 +76,23 @@ flowchart LR
     MT([Modification text]) --> LLM["LLM"]
     LLM --> LHS(["Last hidden\nstate"])
 ```
+
+#### Future: temporal relevance in query embeddings
+
+`CrossAttentionFusion` currently mean-pools the text-conditioned patch tokens before projecting to `embed_dim`. This loses per-frame structure but keeps similarity as a single dot product, which is compatible with ANN search at retrieval time.
+
+If the model fails to capture *which frames* are relevant to a query, consider late interaction:
+
+1. **Remove mean-pool from `CrossAttentionFusion`** — return `[N, embed_dim]` instead of `[embed_dim]`.
+2. **Aggregation options for similarity:**
+   - Max-sim (ColBERT-style): `sim(q, g) = max over N of (q_n · g)` where `g` is the pooled gallery embedding.
+   - Chamfer / sum-max: symmetric, both query and gallery keep `[N, D]`.
+3. **`InfoNCELoss` needs to change** — similarity is no longer a plain dot product; replace
+   `query_emb @ target_emb.T` with the chosen aggregation.
+4. **Retrieval cost**: late interaction breaks standard FAISS dot-product indexing.
+   Options: PLAID-style candidate re-ranking, or pre-cluster frame embeddings.
+
+Only worth doing if ablations show the pooled model misses temporally-grounded queries.
 
 ## Done so far
 
