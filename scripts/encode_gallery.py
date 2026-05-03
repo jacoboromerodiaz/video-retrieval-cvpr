@@ -7,7 +7,7 @@ import yaml
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from covr.data.dataset import RetrievalDataset
+from covr.data.dataset import RetrievalDataset, find_video, load_frames
 from covr.models.vjepa import load_model
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -55,22 +55,43 @@ def encode_gallery(
 
         log.info("Encoding split=%s (%d videos) → %s", split, len(dataset), output_dir)
 
+        # for batch in tqdm(loader, desc=f"Encoding {split}"):
+        #     frames = batch["source_frames"].squeeze(0).to(device)  # [C, T, H, W]
+        #     video_id = batch["source_video_id"][0]
+
+        #     emb = encode_video(model, frames, chunk_size)  # [N, vid_embd]
+
+        #     out_path = output_dir / f"{video_id}.pt"
+        #     out_path.parent.mkdir(parents=True, exist_ok=True)
+        #     torch.save(emb.cpu(), out_path)
+
+        video_root_path = Path(video_root)
         for batch in tqdm(loader, desc=f"Encoding {split}"):
-            frames = batch["source_frames"].squeeze(0).to(device)  # [C, T, H, W]
-            video_id = batch["source_video_id"][0]
-
-            emb = encode_video(model, frames, chunk_size)  # [N, vid_embd]
-
-            out_path = output_dir / f"{video_id}.pt"
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            torch.save(emb.cpu(), out_path)
+            for video_id, frames in [
+                (batch["source_video_id"][0], batch["source_frames"].squeeze(0)),
+                (batch["target_video_id"][0], None),
+            ]:
+                out_path = output_dir / f"{video_id}.pt"
+                if out_path.exists():
+                    continue
+                if frames is None:
+                    frames = load_frames(
+                        find_video(video_root_path, video_id), target_fps
+                    )
+                emb = encode_video(model, frames.to(device), chunk_size)
+                if torch.isnan(emb).any():
+                    log.warning("NaN from %s on %s, retrying on CPU", device, video_id)
+                    model.to("cpu")
+                    emb = encode_video(model, frames.to("cpu"), chunk_size)
+                    model.to(device)
+                torch.save(emb.cpu(), out_path)
 
     log.info("Done.")
 
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Encode gallery videos with V-JEPA2")
-    p.add_argument("--config", default="configs/encoder/vjepa_prod.yaml")
+    p.add_argument("--config", default="configs/encoder/vjepa_dev.yaml")
     return p.parse_args()
 
 
