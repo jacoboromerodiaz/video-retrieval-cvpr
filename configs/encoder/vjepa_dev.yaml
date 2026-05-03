@@ -4,6 +4,6 @@ video_root: covr/data/covr-r/videos
 splits:
   - webvid
   - ss2
-output_dir: video_embeddings/vjepa_base #TODO change output_dir to model name
+output_dir: feautures/gallery/vjepa_base
 num_workers: 4
 target_fps: 2

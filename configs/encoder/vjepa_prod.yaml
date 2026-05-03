@@ -4,6 +4,6 @@ video_root: covr/data/covr-r/videos
 splits:
   - webvid
   - ss2
-output_dir: video_embeddings/vjepa_gigantic
+output_dir: feautures/gallery/vjepa_gigantic
 num_workers: 4
 target_fps: 4

@@ -1,0 +1,17 @@
+mode: dev
+split: webvid
+json_path: covr/data/covr-r/merged_webvid_ss2.json
+embeddings_dir: features/gallery/vjepa_base
+queries_dir: features/queries/flan_large
+text_dim: 1024
+device: mps
+epochs: 5
+batch_size: 8
+lr: 1e-4
+wd: 1e-2
+max_patches: 512
+num_workers: 0
+log_every: 1
+save_every: 5
+ckpt_dir: checkpoints/cross_attn_dev
+resume: null

@@ -4,8 +4,7 @@ video_root: covr/data/covr-r/videos
 splits:
   - webvid
   - ss2
-output_dir: query_embeddings/flan_large/
-batch_key: modification_text
+output_dir: features/queries/flan_large
 pretrained_model: google/flan-t5-large
 batch_size: 64
 num_workers: 4

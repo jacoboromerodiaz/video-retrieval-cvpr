@@ -1,11 +1,10 @@
-mode: dev
+mode: prod
 json_path: covr/data/covr-r/merged_webvid_ss2.json
 video_root: covr/data/covr-r/videos
 splits:
   - webvid
   - ss2
 output_dir: query_embeddings/flan_xl/
-batch_key: modification_text
 pretrained_model: google/flan-t5-xl
 batch_size: 64
 num_workers: 4
