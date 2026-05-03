@@ -38,7 +38,7 @@ class RetrievalDataset(Dataset):
         self,
         json_path: str | Path,
         video_root: str | Path,
-        split: Literal["ss2", "webvid"],
+        split: Literal["ss2", "webvid", "all"] = "all",
         load_frames: bool = True,
         target_fps: int = 4,
     ):
@@ -47,7 +47,10 @@ class RetrievalDataset(Dataset):
         self.target_fps = target_fps
 
         with open(json_path, encoding="utf-8") as f:
-            self.samples = json.load(f)[_SPLIT_INDEX[split]][split]
+            data = json.load(f)
+
+        splits = ("ss2", "webvid") if split == "all" else (split,)
+        self.samples = [sample for s in splits for sample in data[_SPLIT_INDEX[s]][s]]
 
     def __len__(self):
         return len(self.samples)
