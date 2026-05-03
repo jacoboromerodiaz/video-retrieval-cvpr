@@ -26,10 +26,7 @@ class FlanT5Encoder(nn.Module):
             max_length=self.max_length,
         ).to(device)
 
-        last_hidden = self.model(**inputs).last_hidden_state  # (B, T, D)
+        last_hidden = self.model(**inputs).last_hidden_state  # [B, T, D]
 
-        # mean-pool over non-padding tokens
-        mask = inputs["attention_mask"].unsqueeze(-1).float()  # (B, T, 1)
-        embeddings = last_hidden * mask  # (B, T, D)
-
-        return embeddings
+        mask = inputs["attention_mask"].unsqueeze(-1).float()  # [B, T, 1]
+        return last_hidden * mask  # [B, T, D]
