@@ -55,6 +55,8 @@ At retrieval time, either:
 
 TODO
 
+> Might be changed to using LLM to expand queries/structured output and use last hidden state
+
 #### Cross-attention transfomer
 
 The VJEPA paper explicitly validates that 4 blocks is sufficient for attentive probing on top of frozen V-JEPA features across multiple hard benchmarks
