@@ -5,10 +5,13 @@ dist/
 wheels/
 *.egg-info
 .DS_store
+.vscode
 
 .venv
 
+checkpoints
+
 # data
 covr/data/covr-r
-video_embeddings
-query_embeddings
+features/**
+!features/**/.gitkeep
