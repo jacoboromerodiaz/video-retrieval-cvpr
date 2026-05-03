@@ -40,8 +40,8 @@ def encode_queries(
     encoder_model = load_encoder(encoder, pretrained_model).to(device).eval()
 
     for split in splits:
-        split_output_dir = Path(output_dir) / split
-        split_output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         dataset = RetrievalDataset(
             json_path, video_root, split=split, load_frames=False
@@ -52,13 +52,13 @@ def encode_queries(
             "Encoding queries split=%s (%d queries) → %s",
             split,
             len(dataset),
-            split_output_dir,
+            output_dir,
         )
 
         for batch in tqdm(loader, desc=f"Encoding {split}"):
             embeddings = encoder_model(batch[batch_key])
             for query_id, emb in zip(batch["source_video_id"], embeddings):
-                torch.save(emb.cpu(), split_output_dir / f"{query_id}.pt")
+                torch.save(emb.cpu(), output_dir / f"{query_id}.pt")
 
     log.info("Done.")
 
