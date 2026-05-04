@@ -4,7 +4,7 @@ from pathlib import Path
 
 import torch
 import yaml
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
 from covr.data.dataset import RetrievalDataset, find_video, load_frames
@@ -42,28 +42,40 @@ def encode_gallery(
     mode: str = "prod",
 ) -> None:
     model, device = load_model(mode)
+    output_dir = Path(output_dir)
 
     for split in splits:
-        output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # batch_size!= 1 for future implementation
         dataset = RetrievalDataset(
             json_path, video_root, split=split, target_fps=target_fps
         )
-        loader = DataLoader(dataset, batch_size=1, num_workers=num_workers)
 
-        log.info("Encoding split=%s (%d videos) → %s", split, len(dataset), output_dir)
+        done_ids = {p.stem for p in output_dir.glob("*.pt")}
+        if done_ids:
+            log.info("Found %d already-encoded videos, skipping.", len(done_ids))
+        pending = [
+            i
+            for i, s in enumerate(dataset.samples)
+            if str(s["video_source"]).split("/")[-1] not in done_ids
+            or str(s["video_target"]).split("/")[-1] not in done_ids
+        ]
+        if not pending:
+            log.info("All videos already encoded for split=%s, skipping.", split)
+            continue
 
-        # for batch in tqdm(loader, desc=f"Encoding {split}"):
-        #     frames = batch["source_frames"].squeeze(0).to(device)  # [C, T, H, W]
-        #     video_id = batch["source_video_id"][0]
+        loader = DataLoader(
+            Subset(dataset, pending), batch_size=1, num_workers=num_workers
+        )
 
-        #     emb = encode_video(model, frames, chunk_size)  # [N, vid_embd]
-
-        #     out_path = output_dir / f"{video_id}.pt"
-        #     out_path.parent.mkdir(parents=True, exist_ok=True)
-        #     torch.save(emb.cpu(), out_path)
+        log.info(
+            "Encoding split=%s (%d/%d pending) → %s",
+            split,
+            len(pending),
+            len(dataset),
+            output_dir,
+        )
 
         video_root_path = Path(video_root)
         for batch in tqdm(loader, desc=f"Encoding {split}"):
