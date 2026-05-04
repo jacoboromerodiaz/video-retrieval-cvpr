@@ -6,7 +6,7 @@ import torch
 def load_model(mode: str = "prod"):
     if mode == "dev":
         name = "vjepa2_1_vit_base_384"
-        device = "mps"
+        device = "cpu"
     else:
         name = "vjepa2_1_vit_gigantic_384"
         device = "cuda"
