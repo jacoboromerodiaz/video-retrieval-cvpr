@@ -1,14 +1,17 @@
 """Train CrossAttentionFusion + GalleryEncoder with InfoNCE loss."""
 
 import argparse
+import math
 from pathlib import Path
 
 import torch
 import yaml
 from torch.optim import AdamW
-from torch.utils.data import DataLoader, Dataset
+from torch.optim.lr_scheduler import LambdaLR
+from torch.utils.data import DataLoader, Dataset, random_split
 
 from covr.data.dataset import RetrievalDataset
+from covr.evaluation.metrics import recall_at_k  # pylint: disable=no-name-in-module
 from covr.models.cross_attention import (  # pylint: disable=no-name-in-module
     CrossAttentionFusion,
     FusionConfig,
@@ -140,17 +143,7 @@ def train(cfg: dict):
         weight_decay=float(cfg["wd"]),
     )
 
-    start_epoch = 0
-    if cfg["resume"]:
-        ckpt = torch.load(cfg["resume"], map_location=device, weights_only=True)
-        fusion.load_state_dict(ckpt["fusion"])
-        gallery_enc.load_state_dict(ckpt["gallery_enc"])
-        loss_fn.load_state_dict(ckpt["loss_fn"])
-        optimizer.load_state_dict(ckpt["optimizer"])
-        start_epoch = ckpt["epoch"]
-        print(f"resumed from {cfg['resume']} (epoch {start_epoch})")
-
-    dataset = TrainDataset(
+    full_dataset = TrainDataset(
         cfg["json_path"],
         cfg["embeddings_dir"],
         cfg["queries_dir"],
@@ -158,16 +151,56 @@ def train(cfg: dict):
         dev=cfg["mode"] == "dev",
         max_patches=cfg.get("max_patches"),
     )
+    val_frac = cfg.get("val_frac", 0.1)
+    val_size = max(1, int(len(full_dataset) * val_frac))
+    train_size = len(full_dataset) - val_size
+    train_dataset, val_dataset = random_split(
+        full_dataset,
+        [train_size, val_size],
+        generator=torch.Generator().manual_seed(42),
+    )
     loader = DataLoader(
-        dataset,
+        train_dataset,
         batch_size=cfg["batch_size"],
         shuffle=True,
         num_workers=cfg["num_workers"],
         collate_fn=_collate,
     )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=cfg["batch_size"],
+        shuffle=False,
+        num_workers=cfg["num_workers"],
+        collate_fn=_collate,
+    )
+
+    steps_per_epoch = len(loader)
+    total_steps = cfg["epochs"] * steps_per_epoch
+    warmup_steps = int(cfg.get("warmup_epochs", 0) * steps_per_epoch)
+
+    def lr_lambda(step: int) -> float:
+        if warmup_steps > 0 and step < warmup_steps:
+            return (step + 1) / warmup_steps
+        progress = (step - warmup_steps) / max(1, total_steps - warmup_steps)
+        return 0.5 * (1.0 + math.cos(math.pi * progress))
+
+    scheduler = LambdaLR(optimizer, lr_lambda)
+
+    start_epoch = 0
+    if cfg["resume"]:
+        ckpt = torch.load(cfg["resume"], map_location=device, weights_only=True)
+        fusion.load_state_dict(ckpt["fusion"])
+        gallery_enc.load_state_dict(ckpt["gallery_enc"])
+        loss_fn.load_state_dict(ckpt["loss_fn"])
+        optimizer.load_state_dict(ckpt["optimizer"])
+        scheduler.load_state_dict(ckpt["scheduler"])
+        start_epoch = ckpt["epoch"]
+        print(f"resumed from {cfg['resume']} (epoch {start_epoch})")
 
     ckpt_dir = Path(cfg["ckpt_dir"])
     ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+    val_every = cfg.get("val_every", 1)
 
     for epoch in range(start_epoch, cfg["epochs"]):
         fusion.train()
@@ -191,6 +224,7 @@ def train(cfg: dict):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            scheduler.step()
 
             epoch_loss += loss.item()
             if step % cfg["log_every"] == 0:
@@ -199,10 +233,43 @@ def train(cfg: dict):
                     f"step {step}/{len(loader)}\t|\t"
                     f"loss {loss.item():.4f}\t|\t"
                     f"τ {loss_fn.temperature.item():.4f}\t|\t"
+                    f"lr {scheduler.get_last_lr()[0]:.2e}"
                 )
 
         avg = epoch_loss / len(loader)
         print(f"── epoch {epoch+1} avg loss: {avg:.4f}")
+
+        if (epoch + 1) % val_every == 0:
+            fusion.eval()
+            gallery_enc.eval()
+            loss_fn.eval()
+            val_loss = 0.0
+            all_q, all_t = [], []
+            with torch.no_grad():
+                for batch in val_loader:
+                    src = batch["source_patches"].to(device)
+                    tgt = batch["target_patches"].to(device)
+                    text = batch["query_emb"].to(device)
+                    src_mask = batch["source_mask"].to(device)
+                    tgt_mask = batch["target_mask"].to(device)
+                    text_mask = batch["query_mask"].to(device)
+                    query_embs = fusion(src, text, src_mask, text_mask)
+                    target_embs = gallery_enc(tgt, tgt_mask)
+                    val_loss += loss_fn(query_embs, target_embs).item()
+                    all_q.append(query_embs.cpu())
+                    all_t.append(target_embs.cpu())
+            Q = torch.cat(all_q)  # [N_val, embed_dim]
+            T = torch.cat(all_t)  # [N_val, embed_dim]
+            scores = Q @ T.T  # [N_val, N_val]
+            gt = torch.arange(len(Q))
+            r1 = recall_at_k(scores, gt, 1)
+            r5 = recall_at_k(scores, gt, 5)
+            r10 = recall_at_k(scores, gt, 10)
+            r50 = recall_at_k(scores, gt, 50)
+            print(
+                f"── epoch {epoch+1} val  loss: {val_loss / len(val_loader):.4f} │ "
+                f"R@1={r1:.3f}  R@5={r5:.3f}  R@10={r10:.3f}  R@50={r50:.3f}"
+            )
 
         if (epoch + 1) % cfg["save_every"] == 0:
             torch.save(
@@ -212,6 +279,7 @@ def train(cfg: dict):
                     "gallery_enc": gallery_enc.state_dict(),
                     "loss_fn": loss_fn.state_dict(),
                     "optimizer": optimizer.state_dict(),
+                    "scheduler": scheduler.state_dict(),
                 },
                 ckpt_dir / f"ckpt_epoch{epoch+1:04d}.pt",
             )
