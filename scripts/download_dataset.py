@@ -35,10 +35,6 @@ for src_rel, dst_name in subsets:
 shutil.rmtree(local_dir / "WebVid", ignore_errors=True)
 shutil.rmtree(local_dir / "something_something_v2", ignore_errors=True)
 
-
-# possible train set 2
-# snapshot_download(
-#     repo_id="omkarthawakar/CoVR-R",
-#     repo_type="dataset",
-#     local_dir="src/data/train_covr-r",
-# )
+shutil.move(
+    "covr/data/val-set_with-targets.json", local_dir / "val-set_with-targets.json"
+)
