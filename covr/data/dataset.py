@@ -12,6 +12,23 @@ from torchcodec.decoders import VideoDecoder
 _SPLIT_INDEX = {"webvid": 0, "ss2": 1}
 
 
+def _load_trunc(path: Path, max_patches: int | None) -> torch.Tensor:
+    t = torch.load(path, weights_only=True)
+    if max_patches is not None and t.shape[0] > max_patches:
+        t = t[:max_patches]
+    return t
+
+
+def _clean_ids(ids: set[str], directory: Path) -> set[str]:
+    """Return subset of ids whose .pt files contain no NaN values."""
+    ok = set()
+    for vid_id in ids:
+        t = torch.load(directory / f"{vid_id}.pt", weights_only=True)
+        if not torch.isnan(t).any():
+            ok.add(vid_id)
+    return ok
+
+
 def load_frames(
     path: str | Path,
     target_fps: int = 4,
@@ -116,3 +133,112 @@ class RetrievalDatasetTest(Dataset):
                 self.target_fps,
             )
         return item
+
+
+# Embedding-backed datasets
+class TrainDataset(Dataset):
+    """
+    RichTextRetrievalDataset backed by pre-computed vjepa + flan embeddings.
+    """
+
+    def __init__(
+        self,
+        csv_path: str | Path,
+        embeddings_dir: str | Path,
+        queries_dir: str | Path,
+        dev: bool = False,
+        max_patches: int | None = None,
+    ):
+        full = RichTextRetrievalDataset(
+            video_root="", csv_path=csv_path, load_frames=False
+        )
+        self.emb_dir = Path(embeddings_dir) / "train"
+        self.query_dir = Path(queries_dir) / "train"
+        self.max_patches = max_patches
+
+        if dev:
+            all_gallery = {
+                str(p.relative_to(self.emb_dir).with_suffix(""))
+                for p in self.emb_dir.rglob("*.pt")
+            }
+            available_gallery = _clean_ids(all_gallery, self.emb_dir)
+            if len(available_gallery) < len(all_gallery):
+                print(
+                    f"[dev] filtered {len(all_gallery) - len(available_gallery)}"
+                    " NaN gallery files"
+                )
+            available_queries = {
+                str(p.relative_to(self.query_dir).with_suffix(""))
+                for p in self.query_dir.rglob("*.pt")
+            }
+            self.indices = [
+                i
+                for i in range(len(full))
+                if full[i]["source_video_id"] in available_gallery
+                and full[i]["target_video_id"] in available_gallery
+                and full[i]["source_video_id"] in available_queries
+            ]
+            print(f"[dev] {len(self.indices)}/{len(full)} pairs available")
+        else:
+            self.indices = list(range(len(full)))
+
+        self.inner = full
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        item = self.inner[self.indices[idx]]
+        return {
+            "source_patches": _load_trunc(
+                self.emb_dir / f"{item['source_video_id']}.pt", self.max_patches
+            ),
+            "target_patches": _load_trunc(
+                self.emb_dir / f"{item['target_video_id']}.pt", self.max_patches
+            ),
+            "query_emb": torch.load(
+                self.query_dir / f"{item['source_video_id']}.pt", weights_only=True
+            ),
+        }
+
+
+class ValDataset(Dataset):
+    """
+    RetrievalDatasetTest backed by pre-computed vjepa + flan embeddings.
+    """
+
+    def __init__(
+        self,
+        json_path: str | Path,
+        embeddings_dir: str | Path,
+        queries_dir: str | Path,
+        split_type: Literal["val", "test"] = "val",
+        split: Literal["ss2", "webvid", "all"] = "all",
+        max_patches: int | None = None,
+    ):
+        self.inner = RetrievalDatasetTest(
+            video_root="", json_path=json_path, split=split, load_frames=False
+        )
+        self.emb_dir = Path(embeddings_dir) / split_type
+        self.query_dir = Path(queries_dir) / split_type
+        self.max_patches = max_patches
+
+    def __len__(self):
+        return len(self.inner)
+
+    def __getitem__(self, idx):
+        item = self.inner[idx]
+        split_name, raw = self.inner.samples[idx]
+        src_id = item["source_video_id"]
+        tgt_id = str(raw["video_target_covr-r"])
+        return {
+            "source_patches": _load_trunc(
+                self.emb_dir / split_name / f"{src_id}.pt", self.max_patches
+            ),
+            "target_patches": _load_trunc(
+                self.emb_dir / split_name / f"{tgt_id}.pt", self.max_patches
+            ),
+            "query_emb": torch.load(
+                self.query_dir / split_name / f"{src_id}.pt", weights_only=True
+            ),
+        }
