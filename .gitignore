@@ -7,6 +7,8 @@ wheels/
 .DS_store
 .vscode
 
+.pytest_cache
+
 .venv
 
 checkpoints
@@ -17,4 +19,5 @@ covr/data/val_test-covr-r
 covr/data/rich-text-covr
 
 features/**
-!features/**/.gitkeep
+!features/*/
+!features/*/.gitkeep
