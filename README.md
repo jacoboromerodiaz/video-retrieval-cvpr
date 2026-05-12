@@ -14,7 +14,9 @@ The primary evaluation metric used in this challenge is **Recall@K (R@K)**, whic
 
 ## Pipeline
 
-**CLIP** has been changed to FLAN by now.
+**With `kyrielw/Rich-Txt-Edit-CoVR``**
+
+1. VJEPA + **FLAN** + CROSS ATTENTION (also try **QWEN**)
 
 ```mermaid
 flowchart LR
@@ -25,12 +27,33 @@ flowchart LR
     NVE --> DB["Vector database\nsearch"]
     DB --> R([Retrieval])
 
-    MT([Modification text]) --> LLM["LLM"]
-    LLM --> DD(["Detailed video\ndescription"])
-    DD --> CLIP["CLIP encoder"]
-    CLIP --> TE(["Modification query embeddings"])
+    MT([Modification text]) --> LLM["LLM/Last hidden state"]
+    LLM --> TE(["Modification query embeddings"])
     TE --> CA
 ```
+
+2. VJEPA + **BLIP** + CROSS ATTENTION
+
+```mermaid
+flowchart LR
+    V([Video]) --> VJEPA["VJEPA-2.1"]
+    VJEPA --> VE(["Video\nembeddings"])
+    VE --> CA["Cross-attention\ntransformer"]
+    CA --> NVE(["New video\nembeddings"])
+    NVE --> DB["Vector database\nsearch"]
+    DB --> R([Retrieval])
+
+    MT([Modification text]) --> BLIP["BLIP"]
+    BLIP --> TE(["Modification query embeddings"])
+    TE --> CA
+```
+
+**Other ideas**
+
+- maxSim for embedding patches
+- Instead of rich text representations, langchain for short modifications in test dataset and pass to CLIP/BlIP
+- Use QWEN for query embeddings
+
 #### VJEPA-2.1
 
 Videos are encoded offline using a frozen **V-JEPA 2.1 ViT-Base/Gigantic** backbone into patch-level embeddings stored as `.pt` files.
@@ -53,9 +76,7 @@ At retrieval time, either:
 
 #### FLAN encoder
 
-TODO
-
-> Might be changed to using LLM to expand queries/structured output and use last hidden state
+LLM, use last hidden state
 
 #### Cross-attention transfomer
 
@@ -70,14 +91,6 @@ The problem is that when we retrieve the final vector, the dimension goes from [
 2. Pool only spatially: Preserves temporal information, but then MaxSim has to be used, retrieves highest score from a single frame as the score.
 
 > Try to implement MaxSim but with top-k mean
-
-
-#### Possible changes to pipeline
-```mermaid
-flowchart LR
-    MT([Modification text]) --> LLM["LLM"]
-    LLM --> LHS(["Last hidden\nstate"])
-```
 
 #### Future: temporal relevance in query embeddings
 
@@ -120,18 +133,61 @@ Only worth doing if ablations show the pooled model misses temporally-grounded q
 
 - Use text embeddings as values?
 
-- Implement cross-attention directly in VJEPA?
 
 ---
 
 ## Installation
 
-Clone the repository and install all dependencies (including development dependencies) with `uv`:
+1. Clone the repository and install all dependencies (including development dependencies) with `uv`:
 
 ```bash
 git clone git@github.com:jacoboromerodiaz/video-retrieval-cvpr.git
 cd video-retrieval-cvpr
 uv sync --dev
+source .venv/bin/activate
+```
+
+> If uv is not installed `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+2. Install the required datasets:
+
+```bash
+python scripts/download_dataset.py
+python scripts/download_covr_videos.py --split "train" --data_dir "covr/data/rich-text-covr/videos"
+```
+
+3. Encode gallery videos
+
+```bash
+python scripts/encode_gallery.py --config configs/encoder/vjepa/vjepa_train_prod.yaml
+
+python scripts/encode_gallery.py --config configs/encoder/vjepa/vjepa_val_prod.yaml
+
+python scripts/encode_gallery.py --config configs/encoder/vjepa/vjepa_test_prod.yaml
+```
+
+After the first run, `torch.hub` caches the vjepa2 repo locally with a hardcoded
+internal Meta URL that breaks weight downloads. Patch it:
+
+```bash
+sed -i '' 's|http://localhost:8300|https://dl.fbaipublicfiles.com/vjepa2|g' \
+    ~/.cache/torch/hub/facebookresearch_vjepa2_main/src/hub/backbones.py
+```
+
+4. Encode queries
+
+```bash
+python scripts/encode_queries.py --config configs/encoder/flan/flan_train_prod.yaml
+
+python scripts/encode_queries.py --config configs/encoder/flan/flan_val_prod.yaml
+
+python scripts/encode_queries.py --config configs/encoder/flan/flan_test_prod.yaml
+```
+
+5. Train cross attention transformer!
+
+```bash
+python
 ```
 
 ---
