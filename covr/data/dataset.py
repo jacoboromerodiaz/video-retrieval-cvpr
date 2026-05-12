@@ -1,6 +1,7 @@
 """Datasets used for VJEPA-2.1 embeddings"""
 
 import json
+import csv
 from pathlib import Path
 from typing import Literal
 
@@ -24,20 +25,65 @@ def load_frames(
 
 
 def find_video(video_root: Path, stem: str) -> Path:
-    for ext in (".mp4", ".webm", ".avi", ".mkv"):
+    for ext in (".mp4", ".webm"):
         p = video_root / f"{stem}{ext}"
         if p.exists():
             return p
     raise FileNotFoundError(f"No video found for id '{stem}' in {video_root}")
 
 
-class RetrievalDataset(Dataset):
-    """Source video + modification text → target video id triples."""
+class RichTextRetrievalDataset(Dataset):
+    """Source video + modification text → target video id triples (CSV)."""
 
     def __init__(
         self,
-        json_path: str | Path,
         video_root: str | Path,
+        csv_path: str | Path = "cvprw-covr_train.csv",
+        load_frames: bool = True,
+        target_fps: int = 4,
+    ):
+        self.video_root = Path(video_root)
+        self.load_frames_flag = load_frames
+        self.target_fps = target_fps
+
+        with open(csv_path, encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            self.samples = [
+                {
+                    "id": row["id"],
+                    "video_source": row["pth1"],
+                    "video_target": row["pth2"],
+                    "modification_text": row["edit"],
+                }
+                for row in reader
+            ]
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        s = self.samples[idx]
+        item = {
+            "id": str(s["id"]),
+            "modification_text": str(s["modification_text"]),
+            "source_video_id": str(s["video_source"]),
+            "target_video_id": str(s["video_target"]),
+        }
+        if self.load_frames_flag:
+            item["source_frames"] = load_frames(
+                find_video(self.video_root, str(s["video_source"])),
+                self.target_fps,
+            )
+        return item
+
+
+class RetrievalDatasetTest(Dataset):
+    """Source video + modification text."""
+
+    def __init__(
+        self,
+        video_root: str | Path,
+        json_path: str | Path,
         split: Literal["ss2", "webvid", "all"] = "all",
         load_frames: bool = True,
         target_fps: int = 4,
@@ -50,44 +96,23 @@ class RetrievalDataset(Dataset):
             data = json.load(f)
 
         splits = ("ss2", "webvid") if split == "all" else (split,)
-        self.samples = [sample for s in splits for sample in data[_SPLIT_INDEX[s]][s]]
+        self.samples = [
+            (s, sample) for s in splits for sample in data[_SPLIT_INDEX[s]][s]
+        ]
 
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        s = self.samples[idx]
+        split, s = self.samples[idx]
         item = {
             "id": str(s["id"]),
-            "description_source": s["description_source"],
-            "description_target": s["description_target"],
+            "source_video_id": str(s["video_source"]),
             "modification_text": s["modification_text"],
-            "source_video_id": str(s["video_source"]).split("/")[-1],
-            "target_video_id": str(s["video_target"]).split("/")[-1],
         }
         if self.load_frames_flag:
-            video_filename = Path(str(s["video_source"])).name
             item["source_frames"] = load_frames(
-                find_video(self.video_root, video_filename),
+                find_video(self.video_root / split, str(s["video_source"])),
                 self.target_fps,
             )
         return item
-
-
-class VideoEmbeddingDataset(Dataset):
-    """.pt embeddings from a directory."""
-
-    def __init__(self, embeddings_dir: str | Path):
-        self.paths = sorted(Path(embeddings_dir).glob("*.pt"))
-        if not self.paths:
-            raise FileNotFoundError(f"No .pt files in {embeddings_dir}")
-
-    def __len__(self):
-        return len(self.paths)
-
-    def __getitem__(self, idx):
-        path = self.paths[idx]
-        return {
-            "video_id": path.stem,
-            "embedding": torch.load(path, weights_only=True),
-        }
