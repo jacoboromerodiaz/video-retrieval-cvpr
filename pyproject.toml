@@ -12,6 +12,7 @@ dependencies = [
     "timm>=1.0.26",
     "torch>=2.11.0",
     "torchcodec>=0.11.1",
+    "mpi4py>=4.1.1",
 ]
 
 [tool.setuptools.packages.find]
@@ -25,6 +26,7 @@ dev = [
     "black>=26.3.1",
     "flake8>=7.3.0",
     "matplotlib>=3.10.9",
+    "mpi4py>=4.1.1",
     "pre-commit>=4.6.0",
     "pylint>=4.0.5",
     "pytest>=9.0.3",
