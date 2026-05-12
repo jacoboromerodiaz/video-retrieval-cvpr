@@ -1,0 +1,7 @@
+mode: dev
+data_file_path: covr/data/rich-text-covr/cvprw-covr_train.csv
+video_root: covr/data/rich-text-covr/videos
+output_dir: features/gallery/vjepa_base/train
+num_workers: 4
+target_fps: 2
+test: False

@@ -1,0 +1,8 @@
+mode: prod
+data_file_path: covr/data/rich-text-covr/cvprw-covr_train.csv
+video_root: covr/data/rich-text-covr/videos
+output_dir: query_embeddings/flan_xl/train/
+pretrained_model: google/flan-t5-xl
+batch_size: 64
+num_workers: 4
+test: False

@@ -1,0 +1,11 @@
+mode: dev
+data_file_path: covr/data/val_test-covr-r/val-set_no-labels.json
+video_root: covr/data/val_test-covr-r/videos/
+splits:
+  - webvid
+  - ss2
+output_dir: query_embeddings/flan_large/test/
+pretrained_model: google/flan-t5-large
+batch_size: 8
+num_workers: 4
+test: True

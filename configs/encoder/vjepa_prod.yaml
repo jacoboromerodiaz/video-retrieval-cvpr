@@ -1,9 +1,0 @@
-mode: prod
-json_path: covr/data/covr-r/merged_webvid_ss2.json
-video_root: covr/data/covr-r/videos
-splits:
-  - webvid
-  - ss2
-output_dir: features/gallery/vjepa_gigantic
-num_workers: 4
-target_fps: 4
