@@ -13,5 +13,8 @@ checkpoints
 
 # data
 covr/data/covr-r
+covr/data/val_test-covr-r
+covr/data/rich-text-covr
+
 features/**
 !features/**/.gitkeep
