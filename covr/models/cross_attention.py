@@ -1,5 +1,7 @@
 """Cross-attention fusion model for video-text retrieval."""
 
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -187,3 +189,59 @@ class InfoNCELoss(nn.Module):
         labels = torch.arange(len(sim), device=sim.device)
         loss = (F.cross_entropy(sim, labels) + F.cross_entropy(sim.T, labels)) / 2
         return loss
+
+
+class HardNegativeNCELoss(nn.Module):
+    """Symmetric in-batch Hard Negative InfoNCE.
+
+    InfoNCE, but upweights the hardest negatives in the denominator.
+    Assumes query_emb[i] matches target_emb[i].
+    """
+
+    def __init__(
+        self,
+        init_temperature: float = 0.07,
+        hard_negative_weight: float = 2.0,
+        top_k: int = 1,
+    ):
+        super().__init__()
+        self.log_tau = nn.Parameter(torch.tensor(init_temperature).log())
+        self.hard_negative_weight = hard_negative_weight
+        self.top_k = top_k
+
+    @property
+    def temperature(self) -> torch.Tensor:
+        return self.log_tau.exp().clamp(min=1e-4)
+
+    def _hard_negative_ce(self, logits: torch.Tensor) -> torch.Tensor:
+        batch_size = logits.size(0)
+        labels = torch.arange(batch_size, device=logits.device)
+
+        if batch_size <= 1 or self.top_k <= 0:
+            return F.cross_entropy(logits, labels)
+
+        # Exclude positives from hard-negative mining
+        neg_logits = logits.clone()
+        neg_logits[labels, labels] = -float("inf")
+
+        k = min(self.top_k, batch_size - 1)
+        hard_neg_indices = neg_logits.topk(k=k, dim=1).indices  # [B, top_k]
+
+        # Upweight hard negatives by adding log(weight) to their logits
+        hard_neg_mask = torch.zeros_like(logits, dtype=torch.bool)
+        hard_neg_mask.scatter_(1, hard_neg_indices, True)
+        weighted_logits = logits + hard_neg_mask * math.log(self.hard_negative_weight)
+
+        return F.cross_entropy(weighted_logits, labels)
+
+    def forward(
+        self,
+        query_emb: torch.Tensor,
+        target_emb: torch.Tensor,
+    ) -> torch.Tensor:
+        sim = query_emb @ target_emb.T / self.temperature  # [B, B]
+
+        loss_q_to_t = self._hard_negative_ce(sim)
+        loss_t_to_q = self._hard_negative_ce(sim.T)
+
+        return (loss_q_to_t + loss_t_to_q) / 2
