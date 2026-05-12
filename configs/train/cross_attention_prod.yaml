@@ -1,0 +1,32 @@
+model:
+  video_dim: 1664
+  text_dim: 2048
+  d_model: 768
+  nhead: 12
+  ffn_dim: 3072
+  embed_dim: 768
+  dropout: 0.1
+  num_self_attn: 2
+  num_cross_attn: 2
+
+train:
+  mode: prod
+  csv_path: covr/data/rich-text-covr/cvprw-covr_train.csv
+  val_json_path: covr/data/val-set_with-targets.json
+  embeddings_dir: features/gallery/vjepa_gigantic
+  queries_dir: features/queries/flan_xl
+  device: cuda
+  epochs: 10
+  num_workers: 4
+  batch_size: 64
+  max_lr: 1e-4
+  min_lr: 1e-5
+  wd: 1e-2
+  warmup_ratio: 0.05
+  log_every: 1
+  save_every: 5
+  ckpt_dir: checkpoints/cross_attn_prod
+
+loss:
+  name: hn-nce
+  init_temperature: 0.07

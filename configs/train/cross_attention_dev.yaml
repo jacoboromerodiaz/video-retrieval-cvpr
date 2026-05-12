@@ -1,0 +1,33 @@
+model:
+  video_dim: 768
+  text_dim: 1024
+  d_model: 768
+  nhead: 8
+  ffn_dim: 2048
+  embed_dim: 768
+  dropout: 0.1
+  num_self_attn: 2
+  num_cross_attn: 2
+
+train:
+  mode: dev
+  csv_path: covr/data/rich-text-covr/cvprw-covr_train.csv
+  val_json_path: covr/data/val-set_with-targets.json
+  embeddings_dir: features/gallery/vjepa_base_val
+  queries_dir: features/queries/flan_large_val
+  device: mps
+  epochs: 10
+  num_workers: 4
+  batch_size: 8
+  max_lr: 1e-4
+  min_lr: 1e-6
+  wd: 1e-2
+  warmup_ratio: 0.05
+  max_patches: 1560
+  log_every: 1
+  save_every: 5
+  ckpt_dir: checkpoints/cross_attn_dev
+
+loss:
+  name: info-nce
+  init_temperature: 0.07
