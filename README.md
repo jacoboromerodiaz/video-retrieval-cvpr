@@ -14,7 +14,7 @@ The primary evaluation metric used in this challenge is **Recall@K (R@K)**, whic
 
 ## Pipeline
 
-**With `kyrielw/Rich-Txt-Edit-CoVR``**
+**With `kyrielw/Rich-Txt-Edit-CoVR`**
 
 1. VJEPA + **FLAN** + CROSS ATTENTION (also try **QWEN**)
 
@@ -187,7 +187,7 @@ python scripts/encode_queries.py --config configs/encoder/flan/flan_test_prod.ya
 5. Train cross attention transformer!
 
 ```bash
-python
+python scripts/train_cross_attention.py --config configs/train/cross_attention_prod.yaml
 ```
 
 ---
