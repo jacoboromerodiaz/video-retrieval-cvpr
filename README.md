@@ -153,7 +153,7 @@ source .venv/bin/activate
 
 ```bash
 python scripts/download_dataset.py
-python scripts/download_covr_videos.py --split "train" --data_dir "covr/data/rich-text-covr/videos"
+python scripts/download_covr_videos.py --json "covr/data/webvid2m-covr_paths-cvprw_train.json" --data_dir "covr/data/rich-text-covr/videos"
 ```
 
 3. Encode gallery videos
