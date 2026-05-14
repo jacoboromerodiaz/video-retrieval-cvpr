@@ -1,6 +1,6 @@
-# Copied from https://github.com/lucas-ventura/CoVR/blob/master/tools/scripts/download_covr.py
-# Code based from https://github.com/m-bain/webvid/blob/main/download.py
+# Code based from from https://github.com/lucas-ventura/CoVR/blob/master/tools/scripts/download_covr.py
 
+import json
 import numpy as np
 import argparse
 import requests
@@ -13,31 +13,12 @@ def request_save(url, save_fp):
     with open(save_fp, 'wb') as handler:
         handler.write(img_data)
 
-def get_urls(split):
-    if split == 'train':
-        url = "http://imagine.enpc.fr/~ventural/covr/dataset/webvid2m-covr_paths-train.json"
-    elif split == 'val':
-        url = "http://imagine.enpc.fr/~ventural/covr/dataset/webvid8m-covr_paths-val.json"
-    elif split == 'test':
-        url = "http://imagine.enpc.fr/~ventural/covr/dataset/webvid8m-covr_paths-test.json"
-    else:
-        raise ValueError("Split must be one of train, val, or test")
-
-    try:
-        response = requests.get(url)
-        response.raise_for_status()  # Raise an exception for bad status codes
-
-        path2url = response.json()  # Parse JSON data from the response
-        return path2url
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching JSON: {e}")
-
 def main(args):
     video_dir = Path(args.data_dir)
     video_dir.mkdir(parents=True, exist_ok=True)
 
-    path2url = get_urls(args.split)
+    with open(args.json_path, 'r') as f:
+        path2url = json.load(f)
     paths = set(path2url.keys())
 
     # Remove paths that have already been downloaded
@@ -73,9 +54,10 @@ if __name__ == "__main__":
                         help='Partition number to download where 0 <= part < partitions')
     parser.add_argument('--data_dir', type=str, default='./datasets',
                         help='Directory where webvid data is stored.')
-    parser.add_argument('--split', type=str, default='test', choices=['train', 'val', 'test'],
-                        help='Which split to download')
-    parser.add_argument('--processes', type=int, default=8)
+    parser.add_argument('--json_path', type=str,
+                        default="covr/data/webvid2m-covr_paths-cvprw_train.json",
+                        help='Path to the local JSON file mapping video paths to URLs.')
+    parser.add_argument('--processes', type=int, default=32)
     args = parser.parse_args()
 
     if args.part >= args.partitions:
