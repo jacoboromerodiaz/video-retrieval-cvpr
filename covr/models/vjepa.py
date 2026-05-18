@@ -1,4 +1,4 @@
-"""Load VJEPA-2.1 models"""
+"""Load VJEPA-2.1 models and processor"""
 
 import torch
 
@@ -13,3 +13,12 @@ def load_model(mode: str = "prod"):
 
     model = torch.hub.load("facebookresearch/vjepa2", name, trust_repo=True)
     return model[0].eval().to(device), device
+
+
+def load_processor():
+    processor = torch.hub.load(
+        "facebookresearch/vjepa2",
+        "vjepa2_preprocessor",
+        crop_size=384,
+    )
+    return processor
