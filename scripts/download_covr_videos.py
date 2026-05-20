@@ -9,9 +9,12 @@ from pathlib import Path
 from tqdm.auto import tqdm
 
 def request_save(url, save_fp):
-    img_data = requests.get(url, timeout=5).content
+    response = requests.get(url, timeout=5)
+    if response.status_code == 404:
+        print(f"404 Not Found: {url}")
+        return
     with open(save_fp, 'wb') as handler:
-        handler.write(img_data)
+        handler.write(response.content)
 
 def main(args):
     video_dir = Path(args.data_dir)
