@@ -14,6 +14,10 @@ dependencies = [
     "torchcodec>=0.11.1",
     "mpi4py>=4.1.1",
     "opencv-python>=4.13.0.92",
+    "ml-dtypes>=0.5.4",
+    "google-auth>=2.53.0",
+    "google-api-python-client>=2.196.0",
+    "google-auth-oauthlib>=1.4.0",
 ]
 
 [tool.setuptools.packages.find]
