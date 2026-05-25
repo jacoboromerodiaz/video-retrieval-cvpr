@@ -14,6 +14,7 @@ dependencies = [
     "torchcodec>=0.11.1",
     "mpi4py>=4.1.1",
     "opencv-python>=4.13.0.92",
+    "faiss-cpu>=1.7.4",
 ]
 
 [tool.setuptools.packages.find]

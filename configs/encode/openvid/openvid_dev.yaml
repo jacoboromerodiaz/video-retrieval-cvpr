@@ -1,0 +1,6 @@
+mode: dev
+data_file_path: covr/data/openvid/data/train/OpenVid-1M.csv
+video_root: covr/data/openvid/video
+output_dir: features/gallery/vjepa_base/openvid
+num_workers: 0
+target_fps: 4

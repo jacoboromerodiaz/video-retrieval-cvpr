@@ -1,0 +1,6 @@
+pairs_csv: covr/data/openvid/pairs.csv
+output_csv: covr/data/openvid/openvid_train.csv
+model_name: Qwen/Qwen2.5-7B-Instruct
+max_new_tokens: 256
+batch_size: 8
+mode: prod

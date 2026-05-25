@@ -1,0 +1,8 @@
+embeddings_dir: features/gallery/vjepa_gigantic/openvid
+captions_csv: covr/data/openvid/data/train/OpenVid-1M.csv
+output_csv: covr/data/openvid/pairs.csv
+k: 50
+sim_min: 0.7
+sim_max: 0.9
+min_edit_ratio: 0.2
+mode: prod
