@@ -202,6 +202,51 @@ class TrainDataset(Dataset):
         }
 
 
+class SingleVideoDataset(Dataset):
+    """Individual videos from a flat metadata CSV (e.g., OpenVid-1M)."""
+
+    def __init__(
+        self,
+        video_root: str | Path,
+        csv_path: str | Path,
+        id_col: str = "videoid",
+        caption_col: str = "caption",
+        load_frames: bool = True,
+        target_fps: int = 4,
+    ):
+        self.video_root = Path(video_root)
+        self.load_frames_flag = load_frames
+        self.target_fps = target_fps
+        self.id_col = id_col
+        self.caption_col = caption_col
+
+        with open(csv_path, encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            self.samples = [
+                {
+                    "video_source": row[id_col],
+                    "caption": row[caption_col],
+                }
+                for row in reader
+            ]
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        s = self.samples[idx]
+        item = {
+            "source_video_id": str(s["video_source"]),
+            "caption": str(s["caption"]),
+        }
+        if self.load_frames_flag:
+            item["source_frames"] = load_frames(
+                find_video(self.video_root, str(s["video_source"])),
+                self.target_fps,
+            )
+        return item
+
+
 class ValDataset(Dataset):
     """
     RetrievalDatasetTest backed by pre-computed vjepa + flan embeddings.
